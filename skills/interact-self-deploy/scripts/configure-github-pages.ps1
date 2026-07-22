@@ -38,10 +38,17 @@ Invoke-Checked 'gh.exe' @('variable', 'set', 'VITE_SUPABASE_URL', '-R', $Reposit
 Invoke-Checked 'gh.exe' @('variable', 'set', 'VITE_SUPABASE_ANON_KEY', '-R', $Repository, '--body', $PublishableKey)
 Invoke-Checked 'gh.exe' @('variable', 'set', 'VITE_PUBLIC_APP_URL', '-R', $Repository, '--body', $PublicAppUrl.TrimEnd('/'))
 
-& gh.exe api "repos/$Repository/pages" *> $null
-$pagesMethod = if ($LASTEXITCODE -eq 0) { 'PATCH' } else { 'POST' }
-& gh.exe api --method $pagesMethod "repos/$Repository/pages" -f 'build_type=workflow' *> $null
-if ($LASTEXITCODE -ne 0) {
+$previousErrorActionPreference = $ErrorActionPreference
+try {
+  $ErrorActionPreference = 'SilentlyContinue'
+  & gh.exe api "repos/$Repository/pages" *> $null
+  $pagesMethod = if ($LASTEXITCODE -eq 0) { 'PATCH' } else { 'POST' }
+  & gh.exe api --method $pagesMethod "repos/$Repository/pages" -f 'build_type=workflow' *> $null
+  $pagesExitCode = $LASTEXITCODE
+} finally {
+  $ErrorActionPreference = $previousErrorActionPreference
+}
+if ($pagesExitCode -ne 0) {
   throw 'GitHub Pages could not be enabled automatically. Select GitHub Actions under Repository Settings > Pages, then rerun this script.'
 }
 
